@@ -497,7 +497,8 @@ redirect:
 			in.prefixDatum = SGITDATUM(innerTuple, &so->state);
 			in.nNodes = innerTuple->nNodes;
 			in.nodeLabels = spgExtractNodeLabels(&so->state, innerTuple);
-
+			out.traversalValues = NULL;
+			
 			/* collect node pointers */
 			nodes = (SpGistNodeTuple *) palloc(sizeof(SpGistNodeTuple) * in.nNodes);
 			SGITITERATE(innerTuple, i, node)
