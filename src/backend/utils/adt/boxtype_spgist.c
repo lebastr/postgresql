@@ -7,12 +7,12 @@
 #include "utils/datum.h"
 #include "utils/geo_decls.h"
 
-const int NegInf = -1;
-const int PosInf = 1;
-const int NotInf = 0;
-const int LT = -1;
-const int GT = 1;
-const int EQ = 0;
+static const int NegInf = -1;
+static const int PosInf = 1;
+static const int NotInf = 0;
+static const int LT = -1;
+static const int GT = 1;
+static const int EQ = 0;
 
 // InfR объединяет в себя числа из R и +- бесконечность
 
