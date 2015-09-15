@@ -833,6 +833,11 @@ DATA(insert (	3474   3831 2283 16 s	3889 4000 0 ));
 DATA(insert (	3474   3831 3831 18 s	3882 4000 0 ));
 
 /*
+ * SP-GiST box_ops
+ */
+DATA(insert (	5000   603 603 3 s	500 4000 0 ));
+
+/*
  * GiST inet_ops
  */
 DATA(insert (	3550	869 869 3 s		3552 783 0 ));
