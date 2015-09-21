@@ -118,17 +118,24 @@ static int double_cmp(const void *a, const void *b){
 static BoundBox2D evalBoundBox2D(const BoundBox2D bound_box2d, const PInterval p_interval, const int half1, const int half2){
 	BoundBox2D new_bound_box2d;
 
-	if (half1 == 0)
+	if (half1 == 0){
 		new_bound_box2d.low_interval.high = toInfR(p_interval.low);
-	else 
+		new_bound_box2d.low_interval.low = bound_box2d.low_interval.low;
+	}
+	else { 
 		new_bound_box2d.low_interval.low = toInfR(p_interval.low);
+		new_bound_box2d.low_interval.high = bound_box2d.low_interval.high;
+	}		
 
-
-	if (half2 == 0)
+	if (half2 == 0){
 		new_bound_box2d.high_interval.high = toInfR(p_interval.high);
-	else 
+		new_bound_box2d.high_interval.low = bound_box2d.high_interval.low;
+	}
+	else {
 		new_bound_box2d.high_interval.low = toInfR(p_interval.high);
-
+		new_bound_box2d.high_interval.high = bound_box2d.high_interval.high;
+	}
+	
 	return new_bound_box2d;
 }
 
@@ -391,8 +398,9 @@ spg_box_quad_inner_consistent(PG_FUNCTION_ARGS)
 
 			BoundBox4D *bound_box4d;
 			
-			out->traversalValues = (double **) palloc(sizeof(void) * in->nNodes);
+			out->traversalValues = (void **) palloc(sizeof(void *) * in->nNodes);
 			out->nNodes = 0;
+			out->nodeNumbers = (int *) palloc(sizeof(int) * in->nNodes);
 			
 			if(in->traversalValue){
 				bound_box4d = in->traversalValue;
