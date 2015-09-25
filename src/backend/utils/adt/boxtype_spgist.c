@@ -51,6 +51,11 @@ typedef struct {
 	PInterval y_pinterval;
 } PRectangle;
 
+typedef struct {
+	BoundBox4D bound_box4d;
+	uint level;
+} TraversalVal;
+
 inline static InfR toInfR(double v){
 	InfR r;
 	r.infFlag = NotInf;
@@ -396,30 +401,33 @@ spg_box_quad_inner_consistent(PG_FUNCTION_ARGS)
 			const PRectangle p_rectangle_centroid = boxPointerToPRectangle(DatumGetBoxP(in->prefixDatum));
 			const PRectangle p_query_rect = boxPointerToPRectangle(DatumGetBoxP(in->scankeys[i].sk_argument));
 
-			BoundBox4D *bound_box4d;
+			TraversalVal *traversalVal;
+			BoundBox4D bound_box4d;
 			
 			out->traversalValues = (void **) palloc(sizeof(void *) * in->nNodes);
 			out->nNodes = 0;
 			out->nodeNumbers = (int *) palloc(sizeof(int) * in->nNodes);
 			
 			if(in->traversalValue){
-				bound_box4d = in->traversalValue;
+				traversalVal = in->traversalValue;
 			} else {
-				bound_box4d = (BoundBox4D *)palloc(sizeof(BoundBox4D));
-				*bound_box4d = allBoundBox4D();
+				traversalVal = (TraversalVal *)palloc(sizeof(TraversalVal));
+				traversalVal->bound_box4d = allBoundBox4D();
+				traversalVal->level = 0;
 			}
 
-
+			bound_box4d = traversalVal->bound_box4d;
+			
 			// Переключаем контекст для аллокации под traversalValue в traversalMemoryContext
 			oldCtx = MemoryContextSwitchTo(in->traversalMemoryContext);
 
 			for (quadrant = 0; quadrant < in->nNodes; quadrant++){
-				BoundBox4D *new_bound_box4d;
+				TraversalVal *new_traversalVal;
 
-				new_bound_box4d = (BoundBox4D *)palloc(sizeof(BoundBox4D));
-				*new_bound_box4d = evalBoundBox4D(*bound_box4d, p_rectangle_centroid, quadrant);
-
-				out->traversalValues[quadrant] = new_bound_box4d;
+				new_traversalVal = (TraversalVal *)palloc(sizeof(TraversalVal));
+				new_traversalVal->bound_box4d = evalBoundBox4D(bound_box4d, p_rectangle_centroid, quadrant);
+				new_traversalVal->level = traversalVal->level+1;
+				out->traversalValues[quadrant] = new_traversalVal;
 			}
 
 			
@@ -427,7 +435,7 @@ spg_box_quad_inner_consistent(PG_FUNCTION_ARGS)
 			
 			for (quadrant = 0; quadrant < in->nNodes; quadrant++)
 			{
-				if(intersect4D(p_query_rect, *bound_box4d))
+				if(intersect4D(p_query_rect, bound_box4d))
 					out->nodeNumbers[out->nNodes++] = quadrant;
 			}
 			
