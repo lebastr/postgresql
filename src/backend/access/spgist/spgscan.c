@@ -23,8 +23,6 @@
 #include "utils/memutils.h"
 #include "utils/rel.h"
 
-static int LOG_NODE_COUNT = 0;
-
 typedef void (*storeRes_func) (SpGistScanOpaque so, ItemPointer heapPtr,
 								 Datum leafValue, bool isnull, bool recheck);
 
@@ -512,7 +510,6 @@ redirect:
 			{
 				/* use user-defined inner consistent method */
 				procinfo = index_getprocinfo(index, 1, SPGIST_INNER_CONSISTENT_PROC);
-				LOG_NODE_COUNT++;
 				FunctionCall2Coll(procinfo,
 								  index->rd_indcollation[0],
 								  PointerGetDatum(&in),
@@ -559,6 +556,9 @@ redirect:
 					else
 						newEntry->reconstructedValue = (Datum) 0;
 
+					/* elog(DEBUG1, "SPGSCAN nodeN: %d", nodeN); */
+					/* elog(DEBUG1, "SPGSCAN out.traversalValuesPointer: %p", out.traversalValues); */
+					/* elog(DEBUG1, "SPGSCAN traversalValuePointer: %p", (out.traversalValues) ? out.traversalValues[nodeN] : NULL); */
 					newEntry->traversalValue = (out.traversalValues) ?
 								out.traversalValues[i] : NULL;
 
@@ -599,9 +599,7 @@ spggetbitmap(PG_FUNCTION_ARGS)
 	so->tbm = tbm;
 	so->ntids = 0;
 
-	LOG_NODE_COUNT = 0;
 	spgWalk(scan->indexRelation, so, true, storeBitmap);
-	elog(WARNING, "LOG_NODE_COUNT = %d", LOG_NODE_COUNT);
 
 	PG_RETURN_INT64(so->ntids);
 }
