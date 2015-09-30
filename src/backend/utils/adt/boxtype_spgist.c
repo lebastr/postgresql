@@ -51,13 +51,6 @@ typedef struct {
 	PInterval y_pinterval;
 } PRectangle;
 
-typedef struct {
-	BoundBox4D bound_box4d;
-	uint level;
-	uint quadrant;
-	int  randVal;
-} TraversalVal;
-
 char *printInfR (InfR v);
 
 char *printInterval (Interval interval);
@@ -328,17 +321,12 @@ spg_box_quad_picksplit(PG_FUNCTION_ARGS)
 
 	BOX  *centroid;
 	int median, i;
-	int *quadHist;
-	char *elog_str;
-	PRectangle p_centroid;
 	
 	double *lowXs  = palloc(sizeof(double) * in->nTuples);
 	double *highXs = palloc(sizeof(double) * in->nTuples);
 	double *lowYs  = palloc(sizeof(double) * in->nTuples);
 	double *highYs = palloc(sizeof(double) * in->nTuples);
 		
-	elog(DEBUG1, "PICKSPLIT call");
-
 	for (i = 0; i < in->nTuples; i++)
 	{
 		const BOX *box = DatumGetBoxP(in->datums[i]);
@@ -362,11 +350,6 @@ spg_box_quad_picksplit(PG_FUNCTION_ARGS)
 	centroid->low.y = lowYs[median];
 	centroid->high.y = highYs[median];
 	
-	p_centroid = boxPointerToPRectangle(centroid);
-//	elog_str = printPRectangle(p_centroid);
-	elog(DEBUG1, "PICKSPLIT p_centroid: %f %f %f %f", p_centroid.x_pinterval.low, p_centroid.x_pinterval.high,
-		p_centroid.y_pinterval.low, p_centroid.y_pinterval.high);
-
 	out->hasPrefix = true;
 	out->prefixDatum = BoxPGetDatum(centroid);
 
@@ -381,29 +364,13 @@ spg_box_quad_picksplit(PG_FUNCTION_ARGS)
 	 * "centroid" range.
 	 */
 
-	quadHist = palloc(sizeof(int)*16);
-	memset(quadHist, 0, sizeof(int)*16);
-
 	for (i = 0; i < in->nTuples; i++)
 	{
 		const BOX *box = DatumGetBoxP(in->datums[i]);
-		const PRectangle p_rect = boxPointerToPRectangle(box);
 		const uint8 quadrant = getQuadrant(centroid, box);
 
-		/* elog_str = printPRectangle(p_rect); */
-		/* elog(DEBUG1, "PICKSPLIT p_rect: %s", elog_str); */
-		elog(DEBUG1, "PICKSPLIT p_rect: %f %f %f %f", p_rect.x_pinterval.low, p_rect.x_pinterval.high,
-			 p_rect.y_pinterval.low, p_rect.y_pinterval.high);
-
-	
-//		elog(DEBUG1, "PICKSPLIT i: %d, quadrant: %d", i, quadrant);
 		out->leafTupleDatums[i] = BoxPGetDatum(box);
 		out->mapTuplesToNodes[i] = quadrant;
-		quadHist[quadrant] += 1;
-	}
-
-	for (i = 0; i < 16; i++) {
-		elog(DEBUG1, "PICKSPLIT quadrant: %d count: %d", i, quadHist[i]);
 	}
 
 	PG_RETURN_VOID();
@@ -453,70 +420,44 @@ char *printPRectangle (PRectangle r){
 	return s;
 }
 
-static int TC = 0;
-static int SC = 0;
-
 Datum
 spg_box_quad_inner_consistent(PG_FUNCTION_ARGS)
 {
 	spgInnerConsistentIn *in = (spgInnerConsistentIn *) PG_GETARG_POINTER(0);
 	spgInnerConsistentOut *out = (spgInnerConsistentOut *) PG_GETARG_POINTER(1);
 	int i;
-	const int randVal = rand();
 
-	TraversalVal *traversalVal;
 	MemoryContext oldCtx;
-	BoundBox4D bound_box4d;
+	BoundBox4D *bound_box4d;
 	
 	uint8 quadrant;
 	const PRectangle p_rectangle_centroid = boxPointerToPRectangle(DatumGetBoxP(in->prefixDatum));
-	char *elog_str;
 			
 	if(in->traversalValue){
-		traversalVal = in->traversalValue;
+		bound_box4d = in->traversalValue;
 	} else {
-		TC++;
-//		elog(DEBUG1, "INNER_CONSISTENT initialize traversalVal: %d", TC);
-		traversalVal = (TraversalVal *)palloc(sizeof(TraversalVal));
-		traversalVal->bound_box4d = allBoundBox4D();
-		traversalVal->level = 0;
-		traversalVal->quadrant = -1;
-		traversalVal->randVal = -1;
+		bound_box4d = (BoundBox4D *)palloc(sizeof(BoundBox4D));
+		*bound_box4d = allBoundBox4D();
 	}
 
 	out->traversalValues = (void **) palloc(sizeof(void *) * in->nNodes);
-	bound_box4d = traversalVal->bound_box4d;
-	
-	elog_str = palloc(64);
-	if(in->allTheSame)
-		sprintf(elog_str, "\"allTheSame\"");
-	else
-		sprintf(elog_str, "\"notTheSame\"");
-	
-	elog(DEBUG1, "INNER_CONSISTENT { \"node\": %d, \"parent\": %d, \"type\": %s }", randVal, traversalVal->randVal, elog_str);
 
 	if (in->allTheSame)
 	{
 /* Report that all nodes should be visited */
-		SC++;
-//		elog(DEBUG1, "INNER_CONSISTENT type: allTheSame");
 		out->nNodes = in->nNodes;
 		out->nodeNumbers = (int *) palloc(sizeof(int) * in->nNodes);
 		
 		oldCtx = MemoryContextSwitchTo(in->traversalMemoryContext);
 		
 		for (quadrant = 0; quadrant < in->nNodes; quadrant++){
-			TraversalVal *new_traversalVal;
-			BoundBox4D new_bound_box4d;
+			BoundBox4D *new_bound_box4d;
+
+			new_bound_box4d = (BoundBox4D *)palloc(sizeof(BoundBox4D));
 			
-			new_bound_box4d = evalBoundBox4D(bound_box4d, p_rectangle_centroid, quadrant);
-			
-			new_traversalVal = (TraversalVal *)palloc(sizeof(TraversalVal));
-			new_traversalVal->bound_box4d = new_bound_box4d;
-			new_traversalVal->level = traversalVal->level+1;
-			new_traversalVal->quadrant = quadrant;
-			new_traversalVal->randVal = randVal;
-			out->traversalValues[quadrant] = new_traversalVal;
+			*new_bound_box4d = evalBoundBox4D(*bound_box4d, p_rectangle_centroid, quadrant);
+
+			out->traversalValues[quadrant] = new_bound_box4d;
 			out->nodeNumbers[quadrant] = quadrant;
 		}
 		MemoryContextSwitchTo(oldCtx);
@@ -537,54 +478,20 @@ spg_box_quad_inner_consistent(PG_FUNCTION_ARGS)
 			out->nNodes = 0;
 			out->nodeNumbers = (int *) palloc(sizeof(int) * in->nNodes);
 			
-
-//			elog(DEBUG1, "INNER_CONSISTENT type: notSame");
-			
-			
-			/* elog(DEBUG1, "INNER_CONSISTENT {\"level\": %d}", traversalVal->level); */
-
-			/* elog(DEBUG1, "INNER_CONSISTENT traversalValuesPointer: %p", out->traversalValues); */
-			/* elog(DEBUG1, "INNER_CONSISTENT traversalValPointer: %p", traversalVal); */
-			
-			/* elog(DEBUG1, "INNER_CONSISTENT {\"traversalValuesPointer\": %p}", traversalVal); */
-			/* elog(DEBUG1, "INNER_CONSISTENT {\"traversalVal->quadrant\": %d}", traversalVal->quadrant); */
-
-			/* elog_str = printPRectangle(p_rectangle_centroid); */
-			/* elog(DEBUG1, "INNER_CONSISTENT { \"p_rectangle_centroid\": %s}", elog_str); */
-
-			/* elog_str = printPRectangle(p_query_rect); */
-			/* elog(DEBUG1, "INNER_CONSISTENT { \"p_quare_rect\": %s}", elog_str); */
-
-			/* elog_str = printBoundBox4D(bound_box4d); */
-			/* elog(DEBUG1, "INNER_CONSISTENT { \"bound_box4d\": %s}", elog_str); */
-
-			
-			
-//			elog(DEBUG1, "INNER_CONSISTENT");
-			
 			// Переключаем контекст для аллокации под traversalValue в traversalMemoryContext
 			oldCtx = MemoryContextSwitchTo(in->traversalMemoryContext);
 
 			for (quadrant = 0; quadrant < in->nNodes; quadrant++){
-				TraversalVal *new_traversalVal;
-				BoundBox4D new_bound_box4d;
+				BoundBox4D *new_bound_box4d;
+
+				new_bound_box4d = (BoundBox4D *)palloc(sizeof(BoundBox4D));
 				
-				new_bound_box4d = evalBoundBox4D(bound_box4d, p_rectangle_centroid, quadrant);
+				*new_bound_box4d = evalBoundBox4D(*bound_box4d, p_rectangle_centroid, quadrant);
 
-//				elog(DEBUG1, "INNER_CONSISTENT quadrant: %d, new_traversalValuesPointer: %p", quadrant, new_traversalVal);
-
-				if(intersect4D(p_query_rect, new_bound_box4d)){
-					new_traversalVal = (TraversalVal *)palloc(sizeof(TraversalVal));
-					new_traversalVal->bound_box4d = new_bound_box4d;
-					new_traversalVal->level = traversalVal->level+1;
-					new_traversalVal->quadrant = quadrant;
-					new_traversalVal->randVal = randVal;
-
-					out->traversalValues[out->nNodes] = new_traversalVal;
+				if(intersect4D(p_query_rect, *new_bound_box4d)){
+					out->traversalValues[out->nNodes] = new_bound_box4d;
 					out->nodeNumbers[out->nNodes] = quadrant;
 					out->nNodes++;
-					
-//					elog(DEBUG1, "INNER_CONSISTENT intersectOk");
 				}
 			}
 			MemoryContextSwitchTo(oldCtx);
