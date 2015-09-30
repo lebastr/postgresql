@@ -556,9 +556,6 @@ redirect:
 					else
 						newEntry->reconstructedValue = (Datum) 0;
 
-					/* elog(DEBUG1, "SPGSCAN nodeN: %d", nodeN); */
-					/* elog(DEBUG1, "SPGSCAN out.traversalValuesPointer: %p", out.traversalValues); */
-					/* elog(DEBUG1, "SPGSCAN traversalValuePointer: %p", (out.traversalValues) ? out.traversalValues[nodeN] : NULL); */
 					newEntry->traversalValue = (out.traversalValues) ?
 								out.traversalValues[i] : NULL;
 
