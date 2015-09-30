@@ -51,18 +51,6 @@ typedef struct {
 	PInterval y_pinterval;
 } PRectangle;
 
-char *printInfR (InfR v);
-
-char *printInterval (Interval interval);
-
-char *printBoundBox2D (BoundBox2D bound_box2d);
-
-char *printBoundBox4D (BoundBox4D bound_box4d);
-
-char *printPInterval (PInterval i);
-
-char *printPRectangle (PRectangle r);
-
 inline static InfR toInfR(double v){
 	InfR r;
 	r.infFlag = NotInf;
@@ -374,50 +362,6 @@ spg_box_quad_picksplit(PG_FUNCTION_ARGS)
 	}
 
 	PG_RETURN_VOID();
-}
-
-char *printInfR (InfR v) {
-	char *s = palloc(64);
-	if( v.infFlag == NotInf )
-		sprintf(s, "%f", v.val);
-
-	else if (v.infFlag == PosInf)
-		sprintf(s, "\"PosInf\"");
-
-	else
-		sprintf(s, "\"NegInf\"");
-	
-	return s;
-}
-
-char *printInterval (Interval interval){
-	char *s = palloc(128);
-	sprintf(s, "{\"low\": %s, \"high\": %s}", printInfR(interval.low), printInfR(interval.high));
-	return s;
-}
-
-char *printBoundBox2D (BoundBox2D bound_box2d){
-	char *s = palloc(256);
-	sprintf(s, "{\"low_interval\": %s, \"high_interval\": %s}", printInterval(bound_box2d.low_interval), printInterval(bound_box2d.high_interval));
-	return s;
-}
-
-char *printBoundBox4D (BoundBox4D bound_box4d){
-	char *s = palloc(512);
-	sprintf(s, "{\"x_bound_box2d\": %s, \"y_bound_box2d\": %s}", printBoundBox2D(bound_box4d.x_bound_box2d), printBoundBox2D(bound_box4d.y_bound_box2d));
-	return s;
-}
-
-char *printPInterval (PInterval i){
-	char *s = palloc(128);
-	sprintf(s, "{\"low\": %f, \"high\": %f}", i.low, i.high);
-	return s;
-}
-
-char *printPRectangle (PRectangle r){
-	char *s = palloc(256);
-	sprintf(s, "{\"x_pinterval\": %s, \"y_pinterval\": %s}", printPInterval(r.x_pinterval), printPInterval(r.y_pinterval));
-	return s;
 }
 
 Datum
